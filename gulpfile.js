@@ -2,8 +2,8 @@ var gulp = require('gulp');
 var args = require('yargs').argv;
 var config = require('./gulp.config')();
 var del = require('del');
-
-
+var port = process.env.PORT || config.defaultPort;
+var browserSync = require('browser-sync');
 var $ = require('gulp-load-plugins')({lazy: true});
 
 // var jshint = require('gulp-jshint');
@@ -80,7 +80,62 @@ function clean(path, done) {
     del(path,done);
 }
 
+gulp.task('serve-dev',['inject'], function () {
+    var isDev = true;
+    
+   var nodeOptions={
+       script: config.nodeServer,
+       delayTime: 1,
+       env:{
+           'PORT':port,
+           'NOE_ENV': isDev ? 'dev' : 'build'
+       },
+       watch:[config.server]
+   };
+   
+   return $.nodemon(nodeOptions)
+   .on('restart',['vet'], function (ev) {
+        log('***  nodemon restarted');
+        log('file changed on restart : \n' + ev);
+   })
+   .on('start', function () {
+        log('***  nodemon started');
+        startBrowserSync();
+   })
+   .on('crash', function () {
+        log('***  nodemon crashed : script crashed for some reason');
+   })
+   .on('exit', function () {
+        log('***  nodemon exited cleanly');
+   });
+});
 
+function startBrowserSync() {
+    if(browserSync.active){
+        return;
+    }
+    log('starting browser-sync on port  ' + port );
+    
+    var options = {
+        proxy : 'localhost:'+ port,
+        port : 3000,
+        files :[config.client + '**/*.*'],
+        ghostMode:{
+          clicks:true,
+          location : false,
+          forms:true,
+          scroll:true,
+        },
+        injectChanges:true,
+        logFileChanges: true,
+        logLevel:'debug',
+        logPrefix:'gulp-patterns',
+        notify:true,
+        reloadDelay:1000
+    };
+    
+    browserSync(options);
+}
 
 gulp.task('hello', function () {
     console.log('kankan');
